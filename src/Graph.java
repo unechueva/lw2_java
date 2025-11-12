@@ -22,31 +22,51 @@ public class Graph<V>
 
     public void addEdge(V from, V to, int weight)
     {
+        if (weight == 0)
+            throw new IllegalArgumentException("Вес ребра не может быть 0");
         int i = indexOf(from);
         int j = indexOf(to);
-        if (i == -1 || j == -1) throw new IllegalArgumentException("Vertex not found");
+        if (i == -1 || j == -1)
+            throw new IllegalArgumentException("Vertex not found");
+        if (adj[i][j] != 0)
+            throw new IllegalArgumentException("Edge already exists");
         adj[i][j] = weight;
-        if (!directed) adj[j][i] = weight;
+        if (!directed)
+            adj[j][i] = weight;
     }
 
     public void removeVertex(V v)
     {
         int idx = indexOf(v);
         if (idx == -1) return;
-        for (int i = idx; i < count - 1; i++)
-            vertices[i] = vertices[i + 1];
-        vertices[count - 1] = null;
-        for (int i = idx; i < count - 1; i++)
-            for (int j = 0; j < count; j++)
-                adj[i][j] = adj[i + 1][j];
-        for (int j = 0; j < count - 1; j++)
-            for (int i = 0; i < count; i++)
-                adj[i][j] = adj[i][j + 1];
+
+        int newCount = count - 1;
+        Object[] newVertices = new Object[Math.max(10, newCount)];
+        int[][] newAdj = new int[Math.max(10, newCount)][Math.max(10, newCount)];
+
+        int ti = 0;
         for (int i = 0; i < count; i++)
-            adj[i][count - 1] = 0;
-        for (int j = 0; j < count; j++)
-            adj[count - 1][j] = 0;
-        count--;
+        {
+            if (i == idx) continue;
+            newVertices[ti] = vertices[i];
+            ti++;
+        }
+
+        for (int i = 0, ni = 0; i < count; i++)
+        {
+            if (i == idx) continue;
+            for (int j = 0, nj = 0; j < count; j++)
+            {
+                if (j == idx) continue;
+                newAdj[ni][nj] = adj[i][j];
+                nj++;
+            }
+            ni++;
+        }
+
+        vertices = newVertices;
+        adj = newAdj;
+        count = newCount;
     }
 
     public void removeEdge(V from, V to)
@@ -86,8 +106,10 @@ public class Graph<V>
         System.out.print(vertices[idx] + " ");
         visited[idx] = true;
         for (int j = 0; j < count; j++)
+        {
             if (adj[idx][j] != 0)
                 dfsIndex(j, visited);
+        }
     }
 
     public void bfs(V start)
