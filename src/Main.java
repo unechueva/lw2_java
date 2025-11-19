@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.util.Scanner;
 
 public class Main
@@ -20,6 +21,10 @@ public class Main
             System.out.println("5 - Показать смежные вершины");
             System.out.println("6 - DFS (обход в глубину)");
             System.out.println("7 - BFS (обход в ширину)");
+            System.out.println("8 - Изменить вес ребра");
+            System.out.println("9 - Показать матрицу смежности");
+            System.out.println("10 - Сохранить граф в файл");
+            System.out.println("11 - Загрузить граф из файла (заменить текущий)");
             System.out.println("0 - Выход");
             System.out.print("Ваш выбор: ");
             String choice = sc.nextLine().trim();
@@ -93,28 +98,33 @@ public class Main
                     case "5":
                         String adjV = readVertex(sc, "Введите вершину для показа смежных: ");
                         if (adjV == null) break;
-                        System.out.print("Смежные вершины: ");
-                        MyList<String> adj = graph.getAdjacent(adjV);
-                        if (adj.size() == 0)
+                        try
                         {
-                            System.out.print("Нет смежных вершин");
-                        }
-                        else
-                        {
-                            for (int i = 0; i < adj.size(); i++)
+                            MyList<String> adj = graph.getAdjacent(adjV);
+                            if (adj.size() == 0)
+                                System.out.println("Смежные вершины: (нет)");
+                            else
                             {
-                                System.out.print(adj.get(i) + (i < adj.size() - 1 ? ", " : ""));
+                                System.out.print("Смежные вершины: ");
+                                for (int i = 0; i < adj.size(); i++)
+                                {
+                                    System.out.print(adj.get(i) + (i < adj.size() - 1 ? ", " : ""));
+                                }
+                                System.out.println();
                             }
                         }
-                        System.out.println();
+                        catch (IllegalArgumentException e)
+                        {
+                            System.out.println("Ошибка: " + e.getMessage());
+                        }
                         break;
 
                     case "6":
                         String startDFS = readVertex(sc, "Начальная вершина для DFS: ");
                         if (startDFS == null) break;
-                        System.out.print("DFS: ");
                         try
                         {
+                            System.out.print("DFS: ");
                             graph.dfs(startDFS);
                         }
                         catch (IllegalArgumentException e)
@@ -126,14 +136,83 @@ public class Main
                     case "7":
                         String startBFS = readVertex(sc, "Начальная вершина для BFS: ");
                         if (startBFS == null) break;
-                        System.out.print("BFS: ");
                         try
                         {
+                            System.out.print("BFS: ");
                             graph.bfs(startBFS);
                         }
                         catch (IllegalArgumentException e)
                         {
                             System.out.println("Ошибка: " + e.getMessage());
+                        }
+                        break;
+
+                    case "8":
+                        String uFrom = readVertex(sc, "Из вершины: ");
+                        if (uFrom == null) break;
+                        String uTo = readVertex(sc, "В вершину: ");
+                        if (uTo == null) break;
+                        System.out.print("Новый вес: ");
+                        String nw = sc.nextLine().trim();
+                        int newW;
+                        try
+                        {
+                            newW = Integer.parseInt(nw);
+                        }
+                        catch (NumberFormatException e)
+                        {
+                            System.out.println("Ошибка: ожидалось целое число (вес).");
+                            break;
+                        }
+                        if (newW == 0)
+                        {
+                            System.out.println("Ошибка: вес не может быть 0.");
+                            break;
+                        }
+                        try
+                        {
+                            graph.updateEdge(uFrom, uTo, newW);
+                            System.out.println("Вес ребра обновлён: " + uFrom + " -> " + uTo + " (" + newW + ")");
+                        }
+                        catch (IllegalArgumentException e)
+                        {
+                            System.out.println("Ошибка: " + e.getMessage());
+                        }
+                        break;
+
+                    case "9":
+                        System.out.println("Матрица смежности:");
+                        System.out.println(graph.toString());
+                        break;
+
+                    case "10":
+                        System.out.print("Путь для сохранения (Enter — data/graph.txt): ");
+                        String savePath = sc.nextLine().trim();
+                        if (savePath.isEmpty()) savePath = "data/graph.txt";
+                        try
+                        {
+                            graph.saveToFile(savePath);
+                            System.out.println("Граф сохранён в " + savePath);
+                        }
+                        catch (IOException e)
+                        {
+                            System.out.println("Ошибка записи файла: " + e.getMessage());
+                        }
+                        break;
+
+                    case "11":
+                        System.out.print("Путь для загрузки (Enter — data/graph.txt): ");
+                        String loadPath = sc.nextLine().trim();
+                        if (loadPath.isEmpty()) loadPath = "data/graph.txt";
+                        try
+                        {
+                            Graph<String> loaded = Graph.loadFromFile(loadPath);
+                            graph = loaded;
+                            System.out.println("Граф загружен из " + loadPath);
+                        }
+                        catch (IOException e)
+                        {
+                            System.out.println("Ошибка загрузки файла: " + e.getMessage());
                         }
                         break;
 
@@ -169,7 +248,6 @@ public class Main
             System.out.println("Неверный формат: имя вершины должно быть буквой (A-Z).");
             return null;
         }
-        String res = String.valueOf(Character.toUpperCase(c));
-        return res;
+        return String.valueOf(Character.toUpperCase(c));
     }
 }

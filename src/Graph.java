@@ -1,3 +1,9 @@
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+
 public class Graph<V>
 {
     private Object[] vertices;
@@ -31,8 +37,21 @@ public class Graph<V>
         if (adj[i][j] != 0)
             throw new IllegalArgumentException("Edge already exists");
         adj[i][j] = weight;
-        if (!directed)
-            adj[j][i] = weight;
+        if (!directed) adj[j][i] = weight;
+    }
+
+    public void updateEdge(V from, V to, int newWeight)
+    {
+        if (newWeight == 0)
+            throw new IllegalArgumentException("Вес ребра не может быть 0");
+        int i = indexOf(from);
+        int j = indexOf(to);
+        if (i == -1 || j == -1)
+            throw new IllegalArgumentException("Vertex not found");
+        if (adj[i][j] == 0)
+            throw new IllegalArgumentException("Edge does not exist");
+        adj[i][j] = newWeight;
+        if (!directed) adj[j][i] = newWeight;
     }
 
     public void removeVertex(V v)
@@ -41,15 +60,15 @@ public class Graph<V>
         if (idx == -1) return;
 
         int newCount = count - 1;
-        Object[] newVertices = new Object[Math.max(10, newCount)];
-        int[][] newAdj = new int[Math.max(10, newCount)][Math.max(10, newCount)];
+        int size = Math.max(10, newCount);
+        Object[] newVertices = new Object[size];
+        int[][] newAdj = new int[size][size];
 
         int ti = 0;
         for (int i = 0; i < count; i++)
         {
             if (i == idx) continue;
-            newVertices[ti] = vertices[i];
-            ti++;
+            newVertices[ti++] = vertices[i];
         }
 
         for (int i = 0, ni = 0; i < count; i++)
@@ -78,6 +97,7 @@ public class Graph<V>
         if (!directed) adj[j][i] = 0;
     }
 
+    @SuppressWarnings("unchecked")
     public MyList<V> getAdjacent(V v)
     {
         int idx = indexOf(v);
@@ -163,5 +183,119 @@ public class Graph<V>
                 na[i][j] = adj[i][j];
         vertices = nv;
         adj = na;
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("    ");
+        for (int i = 0; i < count; i++)
+        {
+            sb.append(String.valueOf(vertices[i])).append(" ");
+        }
+        sb.append(System.lineSeparator());
+
+        for (int i = 0; i < count; i++)
+        {
+            sb.append(String.valueOf(vertices[i])).append("   ");
+            for (int j = 0; j < count; j++)
+            {
+                sb.append(adj[i][j]).append("   ");
+            }
+            sb.append(System.lineSeparator());
+        }
+        return sb.toString();
+    }
+
+    public void saveToFile(String path) throws IOException
+    {
+        try (BufferedWriter w = new BufferedWriter(new FileWriter(path)))
+        {
+            w.write("directed:" + directed);
+            w.newLine();
+            w.write("# vertices");
+            w.newLine();
+            for (int i = 0; i < count; i++)
+            {
+                w.write(String.valueOf(vertices[i]));
+                w.newLine();
+            }
+            w.write("# edges");
+            w.newLine();
+            for (int i = 0; i < count; i++)
+                for (int j = 0; j < count; j++)
+                    if (adj[i][j] != 0)
+                        w.write(String.valueOf(vertices[i]) + " " + String.valueOf(vertices[j]) + " " + adj[i][j] + System.lineSeparator());
+        }
+    }
+
+    public static Graph<String> loadFromFile(String path) throws IOException
+    {
+        try (BufferedReader r = new BufferedReader(new FileReader(path)))
+        {
+            String line;
+            boolean directedFlag = false;
+            MyList<String> verts = new MyList<>();
+            MyList<String> edges = new MyList<>();
+            boolean stageVertices = false;
+            boolean stageEdges = false;
+            while ((line = r.readLine()) != null)
+            {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                if (line.startsWith("#"))
+                {
+                    if (line.toLowerCase().contains("vertices")) { stageVertices = true; stageEdges = false; }
+                    if (line.toLowerCase().contains("edges")) { stageEdges = true; stageVertices = false; }
+                    continue;
+                }
+                if (line.toLowerCase().startsWith("directed:"))
+                {
+                    String val = line.substring(line.indexOf(':') + 1).trim();
+                    directedFlag = Boolean.parseBoolean(val);
+                    continue;
+                }
+                if (stageVertices)
+                {
+                    verts.add(line);
+                    continue;
+                }
+                if (stageEdges)
+                {
+                    edges.add(line);
+                    continue;
+                }
+                if (!stageVertices && !stageEdges)
+                {
+                    verts.add(line);
+                }
+            }
+
+            Graph<String> g = new Graph<>(directedFlag);
+            for (int i = 0; i < verts.size(); i++)
+            {
+                g.addVertex(verts.get(i));
+            }
+            for (int i = 0; i < edges.size(); i++)
+            {
+                String e = edges.get(i);
+                String[] parts = e.split("\\s+");
+                if (parts.length < 3) continue;
+                String from = parts[0];
+                String to = parts[1];
+                int w;
+                try
+                {
+                    w = Integer.parseInt(parts[2]);
+                }
+                catch (NumberFormatException ex)
+                {
+                    throw new IOException("Invalid weight in file: " + e);
+                }
+                g.addEdge(from, to, w);
+            }
+            return g;
+        }
     }
 }
