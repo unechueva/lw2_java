@@ -1,71 +1,59 @@
-public class MyList<T>
-{
-    private Object[] data;
-    private int size;
+public class MyList<T> {
+    private Object[] data = new Object[10];
+    private int size = 0;
 
-    public MyList()
-    {
-        this.data = new Object[10];
-        this.size = 0;
-    }
-
-    public void add(T item)
-    {
-        if (size == data.length)
-            ensureCapacity();
-        data[size++] = item;
-    }
-
-    public T get(int index)
-    {
-        if (index < 0 || index >= size)
-            throw new IndexOutOfBoundsException("Index: " + index);
-        return (T) data[index];
-    }
-
-    public int size()
-    {
+    public int size() {
         return size;
     }
 
-    public boolean contains(T item)
-    {
-        for (int i = 0; i < size; i++)
-            if (data[i] == null ? item == null : data[i].equals(item))
-                return true;
-        return false;
+    public void add(T value) {
+        ensure(size + 1);
+        data[size++] = value;
     }
 
-    public T removeAt(int index)
-    {
-        if (index < 0 || index >= size)
-            throw new IndexOutOfBoundsException("Index: " + index);
-        T removed = (T) data[index];
-        for (int i = index; i < size - 1; i++)
-            data[i] = data[i + 1];
-        data[--size] = null;
-        return removed;
+    @SuppressWarnings("unchecked")
+    public T get(int index) {
+        if (index < 0 || index >= size) throw new IndexOutOfBoundsException();
+        return (T) data[index];
     }
 
-    private void ensureCapacity()
-    {
-        Object[] newData = new Object[data.length * 2];
-        for (int i = 0; i < data.length; i++)
-            newData[i] = data[i];
-        data = newData;
+    public boolean contains(T value) {
+        return indexOf(value) != -1;
     }
 
-    public String toString()
-    {
-        if (size == 0) return "[]";
-        StringBuilder sb = new StringBuilder();
-        sb.append("[");
-        for (int i = 0; i < size; i++)
-        {
-            sb.append(data[i]);
-            if (i < size - 1) sb.append(", ");
+    public int indexOf(T value) {
+        for (int i = 0; i < size; i++) {
+            Object o = data[i];
+            if (o == null) {
+                if (value == null) return i;
+            } else {
+                if (o.equals(value)) return i;
+            }
         }
-        sb.append("]");
-        return sb.toString();
+        return -1;
+    }
+
+    public void removeAt(int index) {
+        if (index < 0 || index >= size) throw new IndexOutOfBoundsException();
+        for (int i = index; i < size - 1; i++) data[i] = data[i + 1];
+        data[size - 1] = null;
+        size--;
+    }
+
+    public void remove(int index) {
+        removeAt(index);
+    }
+
+    public void removeValue(T value) {
+        int idx = indexOf(value);
+        if (idx != -1) removeAt(idx);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void ensure(int cap) {
+        if (cap <= data.length) return;
+        Object[] n = new Object[data.length * 2];
+        for (int i = 0; i < size; i++) n[i] = data[i];
+        data = n;
     }
 }

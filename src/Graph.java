@@ -1,301 +1,243 @@
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileReader;
+import java.io.PrintWriter;
+import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
+import java.util.Scanner;
 
-public class Graph<V>
-{
-    private Object[] vertices;
-    private int[][] adj;
-    private int count;
-    private boolean directed;
+public class Graph<V> {
+    private MyList<V> vertices = new MyList<>();
+    private MyList<MyList<Edge<V>>> edges = new MyList<>();
+    private boolean oriented;
 
-    public Graph(boolean directed)
-    {
-        this.directed = directed;
-        this.vertices = new Object[10];
-        this.adj = new int[10][10];
-        this.count = 0;
+    private static class Edge<V> {
+        V to;
+        int weight;
+        Edge(V t, int w) { to = t; weight = w; }
     }
 
-    public void addVertex(V v)
-    {
-        if (contains(v)) return;
-        ensureCapacity();
-        vertices[count++] = v;
+    public Graph() { this.oriented = false; }
+
+    public Graph(boolean oriented) { this.oriented = oriented; }
+
+    public boolean isOriented() { return oriented; }
+
+    public void setOriented(boolean oriented) { this.oriented = oriented; }
+
+    public boolean containsVertex(V v) { return indexOf(v) != -1; }
+
+    public boolean addVertex(V v) {
+        if (v == null) return false;
+        if (containsVertex(v)) return false;
+        vertices.add(v);
+        edges.add(new MyList<>());
+        return true;
     }
 
-    public void addEdge(V from, V to, int weight)
-    {
-        if (weight == 0)
-            throw new IllegalArgumentException("Вес ребра не может быть 0");
-        int i = indexOf(from);
-        int j = indexOf(to);
-        if (i == -1 || j == -1)
-            throw new IllegalArgumentException("Vertex not found");
-        if (adj[i][j] != 0)
-            throw new IllegalArgumentException("Edge already exists");
-        adj[i][j] = weight;
-        if (!directed) adj[j][i] = weight;
-    }
-
-    public void updateEdge(V from, V to, int newWeight)
-    {
-        if (newWeight == 0)
-            throw new IllegalArgumentException("Вес ребра не может быть 0");
-        int i = indexOf(from);
-        int j = indexOf(to);
-        if (i == -1 || j == -1)
-            throw new IllegalArgumentException("Vertex not found");
-        if (adj[i][j] == 0)
-            throw new IllegalArgumentException("Edge does not exist");
-        adj[i][j] = newWeight;
-        if (!directed) adj[j][i] = newWeight;
-    }
-
-    public void removeVertex(V v)
-    {
+    public boolean removeVertex(V v) {
         int idx = indexOf(v);
-        if (idx == -1) return;
-
-        int newCount = count - 1;
-        int size = Math.max(10, newCount);
-        Object[] newVertices = new Object[size];
-        int[][] newAdj = new int[size][size];
-
-        int ti = 0;
-        for (int i = 0; i < count; i++)
-        {
-            if (i == idx) continue;
-            newVertices[ti++] = vertices[i];
-        }
-
-        for (int i = 0, ni = 0; i < count; i++)
-        {
-            if (i == idx) continue;
-            for (int j = 0, nj = 0; j < count; j++)
-            {
-                if (j == idx) continue;
-                newAdj[ni][nj] = adj[i][j];
-                nj++;
-            }
-            ni++;
-        }
-
-        vertices = newVertices;
-        adj = newAdj;
-        count = newCount;
-    }
-
-    public void removeEdge(V from, V to)
-    {
-        int i = indexOf(from);
-        int j = indexOf(to);
-        if (i == -1 || j == -1) return;
-        adj[i][j] = 0;
-        if (!directed) adj[j][i] = 0;
-    }
-
-    @SuppressWarnings("unchecked")
-    public MyList<V> getAdjacent(V v)
-    {
-        int idx = indexOf(v);
-        if (idx == -1) throw new IllegalArgumentException("Vertex not found");
-        MyList<V> res = new MyList<>();
-        for (int j = 0; j < count; j++)
-        {
-            if (adj[idx][j] != 0)
-                res.add((V) vertices[j]);
-        }
-        return res;
-    }
-
-    public void dfs(V start)
-    {
-        int s = indexOf(start);
-        if (s == -1) throw new IllegalArgumentException("Vertex not found");
-        boolean[] visited = new boolean[count];
-        dfsIndex(s, visited);
-        System.out.println();
-    }
-
-    private void dfsIndex(int idx, boolean[] visited)
-    {
-        if (visited[idx]) return;
-        System.out.print(vertices[idx] + " ");
-        visited[idx] = true;
-        for (int j = 0; j < count; j++)
-        {
-            if (adj[idx][j] != 0)
-                dfsIndex(j, visited);
-        }
-    }
-
-    public void bfs(V start)
-    {
-        int s = indexOf(start);
-        if (s == -1) throw new IllegalArgumentException("Vertex not found");
-        boolean[] visited = new boolean[count];
-        MyQueue<Integer> q = new MyQueue<>();
-        q.offer(s);
-        visited[s] = true;
-        while (!q.isEmpty())
-        {
-            Integer cur = q.poll();
-            System.out.print(vertices[cur] + " ");
-            for (int j = 0; j < count; j++)
-            {
-                if (adj[cur][j] != 0 && !visited[j])
-                {
-                    visited[j] = true;
-                    q.offer(j);
+        if (idx == -1) return false;
+        vertices.remove(idx);
+        edges.remove(idx);
+        for (int i = 0; i < edges.size(); i++) {
+            MyList<Edge<V>> row = edges.get(i);
+            for (int j = 0; j < row.size(); j++) {
+                if (row.get(j).to.equals(v)) {
+                    row.removeAt(j);
+                    j--;
                 }
             }
         }
-        System.out.println();
+        return true;
     }
 
-    private int indexOf(V v)
-    {
-        for (int i = 0; i < count; i++)
-        {
-            if (vertices[i] == null ? v == null : vertices[i].equals(v))
-                return i;
+    public boolean addEdge(V from, V to, int weight) {
+        if (weight <= 0) return false;
+        int i = indexOf(from);
+        int j = indexOf(to);
+        if (i == -1 || j == -1) return false;
+        MyList<Edge<V>> row = edges.get(i);
+        if (edgeExists(row, to)) return false;
+        row.add(new Edge<>(to, weight));
+        if (!oriented) {
+            MyList<Edge<V>> row2 = edges.get(j);
+            if (!edgeExists(row2, from)) row2.add(new Edge<>(from, weight));
+        }
+        return true;
+    }
+
+    public boolean removeEdge(V from, V to) {
+        int i = indexOf(from);
+        int j = indexOf(to);
+        if (i == -1 || j == -1) return false;
+        MyList<Edge<V>> row = edges.get(i);
+        boolean removed = false;
+        for (int k = 0; k < row.size(); k++) {
+            if (row.get(k).to.equals(to)) {
+                row.removeAt(k);
+                removed = true;
+                break;
+            }
+        }
+        if (!oriented) {
+            MyList<Edge<V>> row2 = edges.get(j);
+            for (int k = 0; k < row2.size(); k++) {
+                if (row2.get(k).to.equals(from)) {
+                    row2.removeAt(k);
+                    break;
+                }
+            }
+        }
+        return removed;
+    }
+
+    public MyList<V> getAdjacent(V v) {
+        MyList<V> res = new MyList<>();
+        int i = indexOf(v);
+        if (i == -1) return res;
+        MyList<Edge<V>> row = edges.get(i);
+        for (int k = 0; k < row.size(); k++) res.add(row.get(k).to);
+
+        if (!oriented) {
+            for (int j = 0; j < edges.size(); j++) {
+                if (j == i) continue;
+                MyList<Edge<V>> row2 = edges.get(j);
+                for (int k = 0; k < row2.size(); k++) {
+                    if (row2.get(k).to.equals(v) && !res.contains(vertices.get(j))) {
+                        res.add(vertices.get(j));
+                    }
+                }
+            }
+        }
+
+        MyList<V> sorted = new MyList<>();
+        for (int idx = 0; idx < vertices.size(); idx++) {
+            if (res.contains(vertices.get(idx))) sorted.add(vertices.get(idx));
+        }
+        return sorted;
+    }
+
+    public boolean hasEdge(V from, V to) {
+        int i = indexOf(from);
+        if (i == -1) return false;
+        return edgeExists(edges.get(i), to);
+    }
+
+    public int getEdgeWeight(V from, V to) {
+        int i = indexOf(from);
+        if (i == -1) return -1;
+        MyList<Edge<V>> row = edges.get(i);
+        for (int k = 0; k < row.size(); k++) {
+            if (row.get(k).to.equals(to)) return row.get(k).weight;
         }
         return -1;
     }
 
-    private boolean contains(V v)
-    {
-        return indexOf(v) != -1;
-    }
-
-    private void ensureCapacity()
-    {
-        if (count < vertices.length) return;
-        int newCap = vertices.length * 2;
-        Object[] nv = new Object[newCap];
-        int[][] na = new int[newCap][newCap];
-        for (int i = 0; i < vertices.length; i++) nv[i] = vertices[i];
-        for (int i = 0; i < vertices.length; i++)
-            for (int j = 0; j < vertices.length; j++)
-                na[i][j] = adj[i][j];
-        vertices = nv;
-        adj = na;
-    }
-
-    @Override
-    public String toString()
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.append("    ");
-        for (int i = 0; i < count; i++)
-        {
-            sb.append(String.valueOf(vertices[i])).append(" ");
+    private boolean edgeExists(MyList<Edge<V>> list, V to) {
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).to.equals(to)) return true;
         }
-        sb.append(System.lineSeparator());
+        return false;
+    }
 
-        for (int i = 0; i < count; i++)
-        {
-            sb.append(String.valueOf(vertices[i])).append("   ");
-            for (int j = 0; j < count; j++)
-            {
-                sb.append(adj[i][j]).append("   ");
+    public void dfs(V start) {
+        int s = indexOf(start);
+        if (s == -1) {
+            System.out.println("Ошибка: вершина не найдена.");
+            return;
+        }
+        boolean[] visited = new boolean[vertices.size()];
+        MyStack<Integer> st = new MyStack<>();
+        st.push(s);
+        StringBuilder out = new StringBuilder();
+        while (!st.isEmpty()) {
+            int cur = st.pop();
+            if (!visited[cur]) {
+                visited[cur] = true;
+                out.append(vertices.get(cur)).append(" ");
+                MyList<V> adj = getAdjacent(vertices.get(cur));
+                for (int i = adj.size() - 1; i >= 0; i--) {
+                    int idx = indexOf(adj.get(i));
+                    if (!visited[idx]) st.push(idx);
+                }
             }
-            sb.append(System.lineSeparator());
         }
-        return sb.toString();
+        System.out.println(out.toString().trim());
     }
 
-    public void saveToFile(String path) throws IOException
-    {
-        try (BufferedWriter w = new BufferedWriter(new FileWriter(path)))
-        {
-            w.write("directed:" + directed);
-            w.newLine();
-            w.write("# vertices");
-            w.newLine();
-            for (int i = 0; i < count; i++)
-            {
-                w.write(String.valueOf(vertices[i]));
-                w.newLine();
+    public void bfs(V start) {
+        int s = indexOf(start);
+        if (s == -1) {
+            System.out.println("Ошибка: вершина не найдена.");
+            return;
+        }
+        boolean[] visited = new boolean[vertices.size()];
+        MyQueue<Integer> q = new MyQueue<>();
+        q.offer(s);
+        visited[s] = true;
+        StringBuilder out = new StringBuilder();
+        while (!q.isEmpty()) {
+            int cur = q.poll();
+            out.append(vertices.get(cur)).append(" ");
+            MyList<V> adj = getAdjacent(vertices.get(cur));
+            for (int i = 0; i < adj.size(); i++) {
+                int idx = indexOf(adj.get(i));
+                if (!visited[idx]) {
+                    visited[idx] = true;
+                    q.offer(idx);
+                }
             }
-            w.write("# edges");
-            w.newLine();
-            for (int i = 0; i < count; i++)
-                for (int j = 0; j < count; j++)
-                    if (adj[i][j] != 0)
-                        w.write(String.valueOf(vertices[i]) + " " + String.valueOf(vertices[j]) + " " + adj[i][j] + System.lineSeparator());
+        }
+        System.out.println(out.toString().trim());
+    }
+
+    private int indexOf(V v) {
+        for (int i = 0; i < vertices.size(); i++) {
+            if (vertices.get(i).equals(v)) return i;
+        }
+        return -1;
+    }
+
+    public void saveToFile(String filename) {
+        try (PrintWriter out = new PrintWriter(new FileWriter(filename))) {
+            out.println(oriented ? "1" : "0");
+            out.println(vertices.size());
+            for (int i = 0; i < vertices.size(); i++) out.println(vertices.get(i));
+            for (int i = 0; i < edges.size(); i++) {
+                MyList<Edge<V>> row = edges.get(i);
+                for (int j = 0; j < row.size(); j++) {
+                    Edge<V> e = row.get(j);
+                    out.println(vertices.get(i) + " " + e.to + " " + e.weight);
+                }
+            }
+        } catch (Exception ignored) {
+            System.out.println("Ошибка при сохранении файла.");
         }
     }
 
-    public static Graph<String> loadFromFile(String path) throws IOException
-    {
-        try (BufferedReader r = new BufferedReader(new FileReader(path)))
-        {
-            String line;
-            boolean directedFlag = false;
-            MyList<String> verts = new MyList<>();
-            MyList<String> edges = new MyList<>();
-            boolean stageVertices = false;
-            boolean stageEdges = false;
-            while ((line = r.readLine()) != null)
-            {
-                line = line.trim();
+    @SuppressWarnings("unchecked")
+    public void loadFromFile(String filename) {
+        try (Scanner sc = new Scanner(new File(filename))) {
+            String dir = sc.nextLine().trim();
+            this.oriented = dir.equals("1");
+            vertices = new MyList<>();
+            edges = new MyList<>();
+            int vcount = Integer.parseInt(sc.nextLine().trim());
+            for (int i = 0; i < vcount; i++) {
+                V v = (V) sc.nextLine().trim();
+                vertices.add(v);
+                edges.add(new MyList<>());
+            }
+            while (sc.hasNextLine()) {
+                String line = sc.nextLine().trim();
                 if (line.isEmpty()) continue;
-                if (line.startsWith("#"))
-                {
-                    if (line.toLowerCase().contains("vertices")) { stageVertices = true; stageEdges = false; }
-                    if (line.toLowerCase().contains("edges")) { stageEdges = true; stageVertices = false; }
-                    continue;
-                }
-                if (line.toLowerCase().startsWith("directed:"))
-                {
-                    String val = line.substring(line.indexOf(':') + 1).trim();
-                    directedFlag = Boolean.parseBoolean(val);
-                    continue;
-                }
-                if (stageVertices)
-                {
-                    verts.add(line);
-                    continue;
-                }
-                if (stageEdges)
-                {
-                    edges.add(line);
-                    continue;
-                }
-                if (!stageVertices && !stageEdges)
-                {
-                    verts.add(line);
-                }
+                String[] p = line.split("\\s+");
+                if (p.length < 3) continue;
+                V from = (V) p[0];
+                V to = (V) p[1];
+                int w = Integer.parseInt(p[2]);
+                addEdge(from, to, w);
             }
-
-            Graph<String> g = new Graph<>(directedFlag);
-            for (int i = 0; i < verts.size(); i++)
-            {
-                g.addVertex(verts.get(i));
-            }
-            for (int i = 0; i < edges.size(); i++)
-            {
-                String e = edges.get(i);
-                String[] parts = e.split("\\s+");
-                if (parts.length < 3) continue;
-                String from = parts[0];
-                String to = parts[1];
-                int w;
-                try
-                {
-                    w = Integer.parseInt(parts[2]);
-                }
-                catch (NumberFormatException ex)
-                {
-                    throw new IOException("Invalid weight in file: " + e);
-                }
-                g.addEdge(from, to, w);
-            }
-            return g;
+        } catch (Exception e) {
+            System.out.println("Ошибка при загрузке файла.");
         }
     }
 }
